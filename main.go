@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,15 +12,6 @@ import (
 var DB *db.DB
 
 func main() {
-
-	DB = initDB()
-
-	tests := runTests()
-
-	r, _ := json.MarshalIndent(tests, "", "\t")
-
-	fmt.Println(string(r))
-
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
