@@ -32,7 +32,6 @@ jobs:
     # Build the Docker image
     - name: Build Image
       run: |-
-        echo $GH_TOKEN
         docker build --build-arg GH_TOKEN=$GH_TOKEN --tag "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA" .
 
     # Push the Docker image to Google Container Registry
