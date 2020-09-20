@@ -19,7 +19,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+    - name: "Set up gcloud"
+      uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
       with:
         service_account_key: ${{ secrets.GCLOUD_SA_KEY }}
         project_id: ${{ secrets.GCLOUD_PROJECT_ID }}
@@ -29,11 +30,12 @@ jobs:
         gcloud --quiet auth configure-docker
 
     # Build the Docker image
-    - name: Build
+    - name: Build Image
       run: |-
-          docker build --build-arg GH_TOKEN=$GH_TOKEN --tag "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA" .
+        echo $GH_TOKEN
+        docker build --build-arg GH_TOKEN=$GH_TOKEN --tag "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA" .
 
     # Push the Docker image to Google Container Registry
-    - name: Publish
+    - name: Push Image
       run: |-
-          docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
+        docker push "gcr.io/$PROJECT_ID/$IMAGE:$GITHUB_SHA"
