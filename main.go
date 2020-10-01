@@ -1,12 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
+	"reflect"
 
 	"github.com/akaritrading/libs/db"
 	"github.com/akaritrading/libs/util"
+	"github.com/akaritrading/systemtests/tests"
 )
 
 var DB *db.DB
@@ -16,9 +17,10 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 
-		err := login()
+		err := tests.Login()
 		if err != nil {
-			log.Fatal(err)
+			util.ErrorJSON(w, err)
+			return
 		}
 
 		util.WriteJSON(w, runTests())
@@ -28,40 +30,26 @@ func main() {
 }
 
 func initDB() *db.DB {
-	db, err := db.Open(util.PostgresHost(), util.PostgresUser(), util.PostgresDBName(), util.PostgresPassword())
+	db, err := db.DefaultOpen()
 	if err != nil {
 		log.Fatal(err)
 	}
 	return db
 }
 
-func runTests() []*TestRun {
+func runTests() []*tests.TestRun {
 
-	var ret []*TestRun
+	var ret []*tests.TestRun
 
-	ret = append(ret, CRUDScript())
-	ret = append(ret, CRUDVersion())
-	ret = append(ret, VersionsCountLimited())
+	testsValue := reflect.ValueOf(tests.Test{})
+	testsType := reflect.TypeOf(tests.Test{})
+
+	for i := 0; i < testsValue.NumMethod(); i++ {
+		method := testsValue.Method(i)
+		run := &tests.TestRun{Name: testsType.Method(i).Name}
+		method.Call([]reflect.Value{reflect.ValueOf(run)})
+		ret = append(ret, run)
+	}
 
 	return ret
-}
-
-type TestRun struct {
-	Name   string
-	Failed bool
-	Logs   []string `json:",omitempty"`
-}
-
-func (t *TestRun) FailStr(err string) {
-	t.Failed = true
-	t.Log(err)
-}
-
-func (t *TestRun) Fail(err error) {
-	t.Failed = true
-	t.Log(err.Error())
-}
-
-func (t *TestRun) Log(f string, v ...interface{}) {
-	t.Logs = append(t.Logs, fmt.Sprintf(f, v...))
 }
