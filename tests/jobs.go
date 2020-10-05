@@ -18,9 +18,9 @@ func runDryRun(scriptID string, scriptBody string, exchangeID string) (*enginecl
 		"exchange":   "binance",
 		"exchangeId": exchangeID,
 		"symbolA":    "BTC",
-		"symbolB":    "USDT",
+		"symbolB":    "TRY",
 		"type":       "cycledryrun",
-		"balance":    map[string]interface{}{"BTC": 0.0, "USDT": 1000},
+		"balance":    map[string]interface{}{"BTC": 0.0, "TRY": 1000},
 		"scriptId":   scriptID,
 	}
 	d, _ := json.Marshal(body)
@@ -41,6 +41,11 @@ func getJob(jobID string) (*db.Job, error) {
 
 func stopJob(jobID string) error {
 	return NewRequest("DELETE", PlatformRoute(fmt.Sprintf("/api/jobs/%s", jobID)), nil, nil)
+}
+
+func trades() ([]db.Trade, error) {
+	var trades []db.Trade
+	return trades, NewRequest("GET", PlatformRoute("/api/trades"), nil, &trades)
 }
 
 func (test Test) Jobs(t *TestRun) {
@@ -64,11 +69,13 @@ func (test Test) Jobs(t *TestRun) {
 		s.test = 1;
 		SaveState(s)
 
-		MarketBuy(Balance().USDT)
-		MarketSell(Balance().BTC)
+		MarketBuy(BuyBalance())
+		MarketSell(SellBalance())
 
+		Print(Average(30))
 		Print(OrderbookPrice().sell)		
-		Print(OrderbookPrice().buy)		
+		Print(OrderbookPrice().buy)
+		
 	`
 	job, err := runDryRun(script.ID, body, ex.ID)
 	if err != nil {
@@ -83,21 +90,18 @@ func (test Test) Jobs(t *TestRun) {
 
 	time.Sleep(time.Second * 2)
 
-	l, err := getLogs(job.ID)
+	logs, err := getLogs(job.ID)
 	if err != nil {
 		t.Fail(errors.Wrap(err, "get logs failed"))
-		return
 	}
 
 	j, err := getJob(job.ID)
 	if err != nil {
 		t.Fail(err)
-		return
 	}
 
-	if len(l) != 2 {
-		t.FailStr("job did not produce two logs")
-		return
+	if len(logs) != 3 {
+		t.FailStr("job did not produce three logs")
 	}
 
 	if j.Body != body {
@@ -113,6 +117,26 @@ func (test Test) Jobs(t *TestRun) {
 
 	if len(j.Trades) != 2 {
 		t.FailStr("job did not produce two trades")
+	}
+
+	var balance map[string]float64
+	json.Unmarshal(util.StrToBytes(j.BalanceJSON), &balance)
+
+	if balance["BTC"] != 0 {
+		t.FailStr("TRY must be zero")
+	}
+
+	if balance["TRY"] < 997 {
+		t.FailStr("TRY must be greater than approx 997")
+	}
+
+	trades, err := trades()
+	if err != nil {
+		t.Fail(errors.Wrap(err, "could not fetch trades"))
+	}
+
+	if len(trades) != 2 {
+		t.FailStr(fmt.Sprintf("trades returned %d trades instead of 2", len(trades)))
 	}
 
 	err = stopJob(j.ID)
